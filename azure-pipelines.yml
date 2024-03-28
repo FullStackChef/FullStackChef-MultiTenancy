@@ -4,7 +4,8 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/dotnet-core
 
 trigger:
-- main
+- release/*
+- beta/*
 
 pool:
   vmImage: 'windows-latest'
@@ -13,20 +14,35 @@ variables:
   solution: '**/*.sln'
   buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
+  branchName: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
+
 
 steps:
 - task: NuGetToolInstaller@1
+
+- powershell: |
+    if ('$(branchName)' -like 'release/*') {
+      $version = '$(branchName)'.Substring(8) + ".$(Build.BuildId)"
+    } elseif ('$(branchName)' -like 'beta/*') {
+      $version = '$(branchName)'.Substring(5) + "-beta.$(Build.BuildId)"
+    } else {
+      $version = "0.0.0.$(Build.BuildId)"
+    }
+    Write-Host "##vso[task.setvariable variable=version]$version"
+  displayName: 'Set Package Version'
 
 - task: NuGetCommand@2
   inputs:
     restoreSolution: '$(solution)'
 
-- task: VSBuild@1
+- task: DotNetCoreCLI@2
   inputs:
-    solution: '$(solution)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+    command: 'pack'
+    packagesToPack: '**/*.csproj'
+    includesymbols: true
+    includesource: true
+    versioningScheme: 'byEnvVar'
+    versionEnvVar: 'version'
 
 - task: VSTest@2
   inputs:
@@ -38,7 +54,9 @@ steps:
     nuGetServiceConnections: 'Nuget Service Connection'
     
 - task: NuGetCommand@2
+  displayName: 'NuGet push'
   inputs:
-    command: 'pack'
-    packagesToPack: 'FullStackChef.MultiTenancy.Data.SQL/*.csproj'
-    versioningScheme: 'off'
+    command: 'push'
+    packagesToPush: '$(Build.ArtifactStagingDirectory)/**/*.nupkg;!$(Build.ArtifactStagingDirectory)/**/*.symbols.nupkg'
+    nuGetFeedType: 'external'
+    publishFeedCredentials: 'Nuget Service Connection'
