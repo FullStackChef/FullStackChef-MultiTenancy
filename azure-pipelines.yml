@@ -48,10 +48,6 @@ steps:
   inputs:
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
-
-- task: NuGetAuthenticate@1
-  inputs:
-    nuGetServiceConnections: 'Nuget Service Connection'
     
 - task: NuGetCommand@2
   displayName: 'NuGet push'
