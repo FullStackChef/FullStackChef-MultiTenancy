@@ -32,3 +32,13 @@ steps:
   inputs:
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
+
+- task: NuGetAuthenticate@1
+  inputs:
+    nuGetServiceConnections: 'Nuget Service Connection'
+    
+- task: NuGetCommand@2
+  inputs:
+    command: 'pack'
+    packagesToPack: 'FullStackChef.MultiTenancy.Data.SQL/*.csproj'
+    versioningScheme: 'off'
